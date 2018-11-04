@@ -83,7 +83,8 @@ class Work(Authed):
         utils.copy_dict_items_to_object(self, api_data, ('title',
                                                          'width',
                                                          'height',
-                                                         'tags',))
+                                                         'tags',
+                                                         'caption'))
 
     @classmethod
     def from_api_data(cls, api_data, auth_token=None, session=None):
@@ -103,6 +104,7 @@ class BaseUser(object):
     @abstractmethod
     def works(self):
         '''Return works for this user'''
+        pass
 
 
 class User(BaseUser, Authed):
@@ -115,6 +117,18 @@ class User(BaseUser, Authed):
         super(User, self).__init__(auth_token=auth_token, session=session)
         self.id = id
 
+    def User(self):
+        '''Return a list of :class:`.Work` created by this user'''
+
+        # FIXME: this does not handle pagination
+
+        api_data = self.get('https://public-api.secure.pixiv.net'
+                            '/v1/users/{}.json'.format(self.id))
+
+        api_data_dict = json.loads(api_data.text)
+        #works_data = api_data_dict.get('response')
+
+        return api_data_dict.get('response')[0]
     def works(self):
         '''Return a list of :class:`.Work` created by this user'''
 
@@ -187,7 +201,7 @@ class Pixiv(Authed):
 
         return Work(work_id, auth_token=self.auth_token, session=self.session)
 
-    def search(self, terms, period='all', order='asc'):
+    def search(self, terms, period='all', order='asc',mode = 'tag'):
         '''Search pixiv and return a list of :class:`.Work` objects.
 
         :param str terms: search terms
@@ -198,7 +212,10 @@ class Pixiv(Authed):
         '''
 
         # FIXME: this does not handle pagination
-
+        if mode not in {'tag', 'caption'}:
+            raise ValueError('"{value}" is not a valid value for period. Try '
+                             'one of "tag", "caption"'.format(value=period)
+							)
         if period not in {'all', 'day', 'week', 'month'}:
             raise ValueError('"{value}" is not a valid value for period. Try '
                              'one of "all", "day", "week" or '
@@ -214,7 +231,7 @@ class Pixiv(Authed):
             'q': terms,
             'period': period,
             'order': order,
-            'mode': 'caption',
+            'mode': mode,
             'sort': 'date',
             'image_sizes': ','.join(['px_128x128', 'px_480mw', 'large'])
         }
